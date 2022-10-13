@@ -1,0 +1,170 @@
+(function () {
+  /**
+   * OVO TAS TOOLS
+   * version: 3
+   *
+   * This is a piece of code designed to run on OvO 1.4 and up and gives some simple TAS tools
+   *
+   * author: Ossama 'skymen' Jouini (developer of OvO)
+   */
+  let timescale = 1;
+  let oldTimescale = 1;
+  let intervalId = null;
+  let runtime = null;
+  const version = 3;
+  let inputs = [];
+  let log = (...args) => {
+    console.group("OvO TAS Tools Log:");
+    console.log(...args);
+    console.groupEnd();
+  };
+  const ovoTasTools = (globalThis.ovoTasTools = {
+    init() {
+      if (window.cr_getC2Runtime)
+        runtime = ovoTasTools.runtime = cr_getC2Runtime();
+      if (runtime) {
+        ovoTasTools.startUpdate();
+        log("OvO TAS Tools Initialised!");
+      } else alert("this is code only works on OvO!");
+    },
+    get version() {
+      return version;
+    },
+    get timescale() {
+      return timescale;
+    },
+    set timescale(val) {
+      if (val === timescale) return;
+      oldTimescale = timescale;
+      timescale = val;
+    },
+    isInLevel() {
+      return runtime.running_layout.name.startsWith("Level");
+    },
+    isPaused() {
+      if (!ovoTasTools.isInLevel()) return;
+      let pauseLayer = runtime.running_layout.layers.find(
+        (x) => x.name === "Pause"
+      );
+      return pauseLayer.visible;
+    },
+    loadInputs(arr) {
+      inputs = arr;
+    },
+    get loadedInputs() {
+      return inputs;
+    },
+    playInputs() {
+      ovoTasTools.timescale = 1;
+      let time = 0;
+      let tickCounter = {
+        tick() {
+          let dt = runtime.dt;
+          time += dt;
+          console.log(time, dt, inputs.length);
+          while (time >= 1 / 60 && inputs.length > 0) {
+            time -= 1 / 60;
+            let inputsForThisFrame = inputs.shift();
+            inputsForThisFrame.forEach((input) => {
+              if (input === "Restart") c2_callFunction("Menu > Replay");
+              else if (input === "Jump")
+                c2_callFunction("Controls > Buffer", ["Jump"]);
+              else c2_callFunction("Controls > " + input);
+            });
+          }
+          if (inputs.length === 0) {
+            runtime.untickMe(tickCounter);
+          }
+        },
+      };
+      runtime.tickMe(tickCounter);
+    },
+    isInEndCard() {
+      if (!ovoTasTools.isInLevel()) return;
+      let endGameLayer = runtime.running_layout.layers.find(
+        (x) => x.name === "End Game"
+      );
+      let endCardLayer = runtime.running_layout.layers.find(
+        (x) => x.name === "End Card"
+      );
+      return endGameLayer.visible || endCardLayer.visible;
+    },
+    pause() {
+      ovoTasTools.timescale = 0;
+    },
+    undoTimescale() {
+      ovoTasTools.timescale = oldTimescale;
+    },
+    step() {
+      let temp = runtime.timescale;
+      //   timescale = 1;
+      //   setTimeout(() => {
+      //     timescale = temp;
+      //   }, 10);
+      runtime.timescale = 1;
+      runtime.tick(true, null, null);
+      runtime.timescale = temp;
+    },
+    startUpdate() {
+      intervalId = setInterval(ovoTasTools.update, 10);
+    },
+    stopUpdate() {
+      clearInterval(intervalId);
+      intervalId = null;
+    },
+    update() {
+      let realtimescale = runtime.timescale;
+      let curtimescale = ovoTasTools.timescale;
+      if (
+        curtimescale != realtimescale &&
+        ovoTasTools.isInLevel() &&
+        !ovoTasTools.isPaused() &&
+        !ovoTasTools.isInEndCard()
+      ) {
+        log("Updating timescale");
+        runtime.timescale = curtimescale;
+      }
+    },
+  });
+
+  ovoTasTools.init();
+})();
+
+
+
+(function () {
+  let old = globalThis.sdk_runtime;
+  c2_callFunction("execCode", ["globalThis.sdk_runtime = this.runtime"]);
+  let runtime = globalThis.sdk_runtime;
+  globalThis.sdk_runtime = old;
+
+  let notify = (text, title = "yooooo", image = "./speedrunner.png") => {
+    cr.plugins_.sirg_notifications.prototype.acts.AddSimpleNotification.call(
+      runtime.types_by_index.find(
+        (type) => type.plugin instanceof cr.plugins_.sirg_notifications
+      ).instances[0],
+      title,
+      text,
+      image
+    );
+  };
+
+  notify(
+    "set timescale with qweasdzxcv, t is tas jump, g is jump spam",
+    "timescale shortcut mod loaded"
+  );
+  document.addEventListener("keydown", (event) => {
+    if (event.shiftKey) {
+        if (event.code === "KeyU") {
+        ovoTasTools.timescale = 1.003
+        notify("Frame Fix set to 1.003");
+        }
+    }
+    if (event.shiftKey) {
+        if (event.code === "KeyY") {
+        ovoTasTools.timescale = 1.002
+        notify("Frame Fix set to 1.002");
+        }
+    }
+  });
+})();
